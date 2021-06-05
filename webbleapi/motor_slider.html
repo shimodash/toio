@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Bluetooth API で書き込み</title>
+<link rel="stylesheet" href="./bulma.min.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">
+        操作用ボタン1
+      </h1>
+      <div class="buttons">
+        <button class="button is-success is-light" type="button" onclick="onReadButtonClick()">接続</button>
+        <button class="button is-info is-light" type="button" onclick="onWriteButtonClick()">書き込み</button>
+          </div>
+     <div class="slider">
+        <input id = "mysliderx" class="slider is-fullwidth" step="1" min="98" max="402" value="255" type="range"><label>x</label><br>
+        <input id = "myslidery" class="slider is-fullwidth" step="1" min="142" max="358" value="255" type="range"><labal>y</labal>
+     </div>
+    </div>
+</section>
+
+<script>
+const TOIO_SERVICE_UUID          = '10b20100-5b3b-4571-9508-cf3efcd7bbae';
+const LIGHT_CHARACTERISTICS_UUID = '10b20103-5b3b-4571-9508-cf3efcd7bbae';
+const MOTOR_CHARACTERISTIC_UUID =  '10b20102-5b3b-4571-9508-cf3efcd7bbae';
+//const light_buf = new Uint8Array([ 0x03, 0x00, 0x01, 0x01, 0xFF, 0xFF, 0x00 ]);
+let data2 = 200;
+//const light_buf = new Uint8Array([0x02, 0x01, 0x01, 0x32, 0x02, 0x02, 0x32, 0x78,]);
+//const motorBuf = new Uint8Array([0x02, 0x01, 0x01, 0x32, 0x02, 0x02, 0x32, 0x78,]);
+
+let myDescriptor;
+let characteristic;
+
+async function onReadButtonClick() {
+  let serviceUuid = TOIO_SERVICE_UUID;
+//  let characteristicUuid = LIGHT_CHARACTERISTICS_UUID;
+  let characteristicUuid = MOTOR_CHARACTERISTIC_UUID;
+
+  try {
+    console.log('Requesting Bluetooth Device...');
+    const device = await navigator.bluetooth.requestDevice({
+        filters: [{services: [serviceUuid]}]});
+    console.log('Connecting to GATT Server...');
+    const server = await device.gatt.connect();
+    console.log('Getting Service...');
+    const service = await server.getPrimaryService(serviceUuid);
+    console.log('Getting Characteristic...');
+    characteristic = await service.getCharacteristic(characteristicUuid);
+
+    console.log('Getting Descriptor...');
+    myDescriptor = await characteristic.getDescriptor('gatt.characteristic_user_description');
+    const value = await myDescriptor.readValue();
+    let decoder = new TextDecoder('utf-8');
+    console.log('> Characteristic User Description: ' + decoder.decode(value));
+  } catch(error) {
+    console.log('Argh! ' + error);
+  }
+}
+
+async function onWriteButtonClick() {
+  if (!characteristic) {
+    return;
+  }
+  let elementx = document.getElementById('mysliderx');
+  console.log(elementx.value);
+  let data_dx = elementx.value & 0xff;
+  let data_ux = elementx.value >> 8 ;
+  console.log(data_dx);
+  console.log(data_ux);
+
+  let elementy = document.getElementById('myslidery');
+  console.log(elementy.value);
+  let data_dy = elementy.value & 0xff;
+  let data_uy = elementy.value >> 8 ;
+  console.log(data_dy);
+  console.log(data_uy);
+
+
+  const light_buf = new Uint8Array([ 0x03, 0x00, 0x01, 0x00, 0x50, 0x00, 0x00, data_dx, data_ux, data_dy, data_uy, 0x00, 0x00 ]);
+  let value = light_buf;
+
+  try {
+    await characteristic.writeValue(value);
+  } catch(error) {
+    console.log('Argh! ' + error);
+  }
+}
+
+</script>
+</body>
+</html>
