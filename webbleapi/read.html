@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Bluetooth API で読み込み</title>
+<link rel="stylesheet" href="./bulma.min.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">
+        操作用ボタン1
+      </h1>
+      <div class="buttons">
+        <button class="button is-success is-light" type="button" onclick="onStarButtonClick()">接続</button>
+        <button class="button is-light"            type="button" onclick="onReadButtonClick()">読み込み</button>
+      </div>
+    </div>
+</section>
+
+<script>
+const TOIO_SERVICE_UUID          = '10b20100-5b3b-4571-9508-cf3efcd7bbae';
+const ID_SENSOR_CHARACTERISTICS_UUID = '10b20101-5b3b-4571-9508-cf3efcd7bbae';
+
+let bluetoothDevice;
+let idSensorCharacteristic;
+
+async function onStarButtonClick() {
+  try {
+    if (!bluetoothDevice) {
+      await requestDevice();
+    }
+  } catch(error) {
+    console.log('Argh! ' + error);
+  }
+}
+
+async function requestDevice() {
+  let serviceUuid = TOIO_SERVICE_UUID;
+  let characteristicUuid = ID_SENSOR_CHARACTERISTICS_UUID;
+
+  try {
+    console.log('Requesting Bluetooth Device...');
+    bluetoothDevice = await navigator.bluetooth.requestDevice({
+          filters: [{services: [serviceUuid]}]});
+    console.log('Connecting to GATT Server...');
+    const server = await bluetoothDevice.gatt.connect();
+    console.log('Getting Service...');
+    const service = await server.getPrimaryService(serviceUuid);
+    console.log('Getting Characteristic...');
+    idSensorCharacteristic = await service.getCharacteristic(characteristicUuid);
+  } catch(error) {
+    console.log('Argh! ' + error);
+  }
+}
+
+async function onReadButtonClick() {
+  if (idSensorCharacteristic) {
+    try {
+      console.log('Reading ...');
+      await idSensorCharacteristic.readValue().then(value => {
+        let a = [];
+        for (let i = 0; i < value.byteLength; i++) {
+          a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+        }
+        console.log('> ' + a.join(' '));
+      });
+    } catch(error) {
+      console.log('Argh! ' + error);
+    }
+  }
+}
+
+</script>
+</body>
+</html>

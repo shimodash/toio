@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web Bluetooth API で通知</title>
+<link rel="stylesheet" href="./bulma.min.css">
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">
+        操作用ボタン1
+      </h1>
+      <div class="buttons">
+        <button class="button is-success is-light" type="button" onclick="onStartButtonClick()">接続＋通知ON</button>
+        <button class="button is-danger is-light"  type="button" onclick="onStopButtonClick()">通知OFF</button>
+        <button class="button is-info is-light" type="button" onclick="onStartNotificationsButtonClick()">通知ON</button>
+      </div>
+    </div>
+</section>
+
+<script>
+const TOIO_SERVICE_UUID          = '10b20100-5b3b-4571-9508-cf3efcd7bbae';
+const MOTION_CHARACTERISTIC_UUID = '10b20106-5b3b-4571-9508-cf3efcd7bbae';
+
+let myCharacteristic;
+
+async function onStartButtonClick() {
+  let serviceUuid = TOIO_SERVICE_UUID;
+  let characteristicUuid = MOTION_CHARACTERISTIC_UUID;
+
+  try {
+    console.log('Requesting Bluetooth Device...');
+    const device = await navigator.bluetooth.requestDevice({
+        filters: [{services: [serviceUuid]}]});
+    console.log('Connecting to GATT Server...');
+    const server = await device.gatt.connect();
+    console.log('Getting Service...');
+    const service = await server.getPrimaryService(serviceUuid);
+    console.log('Getting Characteristic...');
+    myCharacteristic = await service.getCharacteristic(characteristicUuid);
+    await myCharacteristic.startNotifications();
+    console.log('> Notifications started');
+    myCharacteristic.addEventListener('characteristicvaluechanged',
+        handleNotifications);
+  } catch(error) {
+    console.log('Argh! ' + error);
+  }
+}
+
+async function onStopButtonClick() {
+  if (myCharacteristic) {
+    try {
+      await myCharacteristic.stopNotifications();
+      console.log('> Notifications stopped');
+      myCharacteristic.removeEventListener('characteristicvaluechanged',
+          handleNotifications);
+    } catch(error) {
+      console.log('Argh! ' + error);
+    }
+  }
+}
+
+async function onStartNotificationsButtonClick() {
+  try {
+    console.log('Starting Notifications...');
+    await myCharacteristic.startNotifications();
+    myCharacteristic.addEventListener('characteristicvaluechanged',
+        handleNotifications);
+    console.log('> Notifications started');
+  } catch(error) {
+    log('Argh! ' + error);
+  }
+}
+
+function handleNotifications(event) {
+  let value = event.target.value;
+  let a = [];
+  for (let i = 0; i < value.byteLength; i++) {
+    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+  }
+  console.log('> ' + a.join(' '));
+}
+
+</script>
+</body>
+</html>

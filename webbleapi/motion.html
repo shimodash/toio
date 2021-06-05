@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<titleWeb Bluetooth API によるシェイク検出のデータ取得とデータのグラフ化</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/smoothie/1.34.0/smoothie.min.js"></script>
+</head>
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">
+        グラフと操作用ボタン
+      </h1>
+      <canvas id="mycanvas" width="400" height="100"></canvas>
+      <div class="buttons" style="margin-top: 1.5rem;">
+        <button class="button is-success is-light" type="button" onclick="onStartButtonClick()">接続＋通知ON</button>
+        <button class="button is-danger is-light"  type="button" onclick="onStopButtonClick()">通知OFF</button>
+        <button class="button is-info is-light" type="button" onclick="onStartNotificationsButtonClick()">通知ON</button>
+        <button class="button is-angle is-light" type="button" onclick="onAngleNotificationsButtonClick()">姿勢角通知ON</button>
+      </div>
+    </div>
+</section>
+
+<script>
+var smoothie = new SmoothieChart({ minValue: 0.0, maxValue: 10.0});
+var line = new TimeSeries();
+smoothie.addTimeSeries(line, { strokeStyle: 'rgba(0, 255, 0, 1)', fillStyle: 'rgba(0, 255, 0, 0.2)', lineWidth: 4 });
+smoothie.streamTo(document.getElementById("mycanvas"));
+
+const TOIO_SERVICE_UUID          = '10b20100-5b3b-4571-9508-cf3efcd7bbae';
+const MOTION_CHARACTERISTIC_UUID = '10b20106-5b3b-4571-9508-cf3efcd7bbae';
+//const MOTION_CHARACTERISTIC_UUID = '10B20106-5B3B-4571-9508-CF3EFCD7BBAE';
+const buf = new Uint8Array([0x83,0x01]);
+
+let myCharacteristic;
+
+async function onStartButtonClick() {
+  let serviceUuid = TOIO_SERVICE_UUID;
+  let characteristicUuid = MOTION_CHARACTERISTIC_UUID;
+
+  try {
+    console.log('Requesting Bluetooth Device...');
+    const device = await navigator.bluetooth.requestDevice({
+        filters: [{services: [serviceUuid]}]});
+    console.log('Connecting to GATT Server...');
+    const server = await device.gatt.connect();
+    console.log('Getting Service...');
+    const service = await server.getPrimaryService(serviceUuid);
+    console.log('Getting Characteristic...');
+    myCharacteristic = await service.getCharacteristic(characteristicUuid);
+    await myCharacteristic.startNotifications();
+    console.log('> Notifications started');
+    myCharacteristic.addEventListener('characteristicvaluechanged',
+        handleNotifications);
+  } catch(error) {
+    console.log('Argh! ' + error);
+  }
+}
+
+async function onStopButtonClick() {
+  if (myCharacteristic) {
+    try {
+      await myCharacteristic.stopNotifications();
+      console.log('> Notifications stopped');
+      myCharacteristic.removeEventListener('characteristicvaluechanged',
+          handleNotifications);
+    } catch(error) {
+      console.log('Argh! ' + error);
+    }
+  }
+}
+
+async function onStartNotificationsButtonClick() {
+  try {
+    console.log('Starting Notifications...');
+    await myCharacteristic.startNotifications();
+
+    let value = new Uint8Array([0x83,0x01]);//buf;
+    console.log('write...');
+    await myCharacteristic.writeValue(value);
+
+    myCharacteristic.addEventListener('characteristicvaluechanged',
+        handleNotifications);
+    console.log('> Notifications started');
+  } catch(error) {
+    log('Argh! ' + error);
+  }
+}
+
+async function onAngleNotificationsButtonClick() {
+  try {
+    console.log('Starting Notifications...');
+    await myCharacteristic.startNotifications();
+
+    let value = new Uint8Array([0x83,0x01]);//buf;
+    console.log('write...');
+//    while(true){
+    await myCharacteristic.writeValue(value);
+ //   }
+  } catch(error) {
+    log('Argh! ' + error);
+  }
+}
+
+function handleNotifications(event) {
+  let value = event.target.value;
+  let a = [];
+  for (let i = 0; i < value.byteLength; i++) {
+    a.push('0x' + ('00' + value.getUint8(i).toString(16)).slice(-2));
+  }
+  console.log('> ' + a.join(' '));
+
+  const shake = value.getUint8(5);
+
+  line.append(new Date().getTime(), shake);
+}
+
+</script>
+</body>
+</html>

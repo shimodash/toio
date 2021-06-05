@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web Bluetooth API による複数同時接続</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.css"/>
+  </head>
+  <body>
+    <section class="section">
+      <div class="container">
+        <h1 class="title">操作用ボタン</h1>
+        <div class="buttons" style="margin-top: 1.5rem">
+          <button class="button is-success is-light" type="button" onclick="onStartButtonClick()">接続</button>
+          <button class="button is-info is-light" type="button" onclick="onButton02Click()">一斉動作</button>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const TOIO_SERVICE_UUID = "10b20100-5b3b-4571-9508-cf3efcd7bbae";
+      const MOTOR_CHARACTERISTIC_UUID = "10b20102-5b3b-4571-9508-cf3efcd7bbae";
+      const motorBuf = new Uint8Array([0x02, 0x01, 0x01, 0x32, 0x02, 0x02, 0x32, 0x78,]);
+
+      let myCharacteristics = [];
+
+      async function onStartButtonClick() {
+        let serviceUuid = TOIO_SERVICE_UUID;
+
+        try {
+          console.log("Requesting Bluetooth Device...");
+          const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [serviceUuid] }],
+          });
+          console.log("Connecting to GATT Server...");
+          const server = await device.gatt.connect();
+          console.log("Getting Service...");
+          const service = await server.getPrimaryService(serviceUuid);
+          console.log("Getting Characteristic...");
+          const characteristic = await service.getCharacteristic(
+            MOTOR_CHARACTERISTIC_UUID
+          );
+          myCharacteristics.push(characteristic);
+          console.log(myCharacteristics.length);
+        } catch (error) {
+          console.log("Argh! " + error);
+        }
+      }
+
+      async function onButton02Click() {
+        if (myCharacteristics.length !== 0) {
+          for (const element of myCharacteristics) {
+            console.log("write");
+            await element.writeValue(motorBuf);
+          }
+        }
+      }
+    </script>
+  </body>
+</html>
